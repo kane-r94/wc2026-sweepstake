@@ -949,9 +949,7 @@ async function apiGet(path){
     await new Promise(r=>setTimeout(r,wait));
   }
   const CORS_PROXY='https://corsproxy.io/?url=';
-  const sep=path.includes('?')?'&':'?';
-  const bust=sep+'_cb='+Date.now();
-  const url=CORS_PROXY+encodeURIComponent(API_BASE+path+bust);
+  const url=CORS_PROXY+encodeURIComponent(API_BASE+path)+'&_cb='+Date.now();
   const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
   const rem=res.headers.get('X-RateLimit-Remaining');
   const rst=res.headers.get('X-RateLimit-Reset');
