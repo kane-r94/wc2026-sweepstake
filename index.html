@@ -1053,6 +1053,10 @@ async function renderMatches(){
     nextBody.innerHTML=rows.join('');
     nextSub.textContent='Times shown in BST (British Summer Time)';
 
+    // Auto-poll every 60s while any match is live
+    const hasLive=todayMatches.some(m=>m.status==='IN_PLAY'||m.status==='PAUSED');
+    if(hasLive) startLivePolling(); else stopLivePolling();
+
   }catch(err){
     console.error(err);
     const msg=err.message||'';
@@ -1064,6 +1068,15 @@ async function renderMatches(){
       nextBody.innerHTML='';
     }
   }
+}
+
+let _livePoller=null;
+function startLivePolling(){
+  if(_livePoller)return;
+  _livePoller=setInterval(()=>renderMatches(),60000);
+}
+function stopLivePolling(){
+  if(_livePoller){clearInterval(_livePoller);_livePoller=null;}
 }
 
 function stageTagLabel(stage){
