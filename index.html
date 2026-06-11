@@ -939,7 +939,6 @@ async function renderMatches(){
       matchCache={todayMatches,scheduledMatches,fetchedAt:Date.now()};
     }
     liveMatches=todayMatches;
-    const scheduledMatches=scheduledData.matches||[];
     // Combine: scheduled future matches for "next fixture"
     const allUpcoming=[...scheduledMatches];
 
