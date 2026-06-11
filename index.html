@@ -812,6 +812,7 @@ function mapName(n){return API_NAME_MAP[n]||n;}
 
 let rlRemaining=10,rlReset=0;
 let liveMatches=[];
+let matchCache={todayMatches:null,scheduledMatches:null,fetchedAt:0};
 
 async function apiGet(path){
   const now=Date.now()/1000;
@@ -908,23 +909,35 @@ async function renderMatches(){
   const todayDate=document.getElementById('mx-today-date');
   const nextSub=document.getElementById('mx-next-sub');
 
-  todayBody.innerHTML='<div class="empty">Fetching fixtures from football-data.org...</div>';
-  nextBody.innerHTML='<div class="empty">Fetching...</div>';
-
   const now=new Date();
   const todayStr=now.toISOString().slice(0,10);
   const todayLabel=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   todayHeading.textContent='Today\'s Matches';
   todayDate.textContent=todayLabel;
 
-  try{
-    // 2 calls: today's matches (all statuses) + upcoming for next-fixture panel
-    const [todayData, scheduledData] = await Promise.all([
-      apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
-      apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
-    ]);
+  const CACHE_TTL=60000; // reuse data if fetched within 60s
+  const cacheAge=Date.now()-matchCache.fetchedAt;
+  const cacheValid=matchCache.todayMatches&&cacheAge<CACHE_TTL;
 
-    const todayMatches=todayData.matches||[];
+  if(!cacheValid){
+    todayBody.innerHTML='<div class="empty">Fetching fixtures from football-data.org...</div>';
+    nextBody.innerHTML='<div class="empty">Fetching...</div>';
+  }
+
+  try{
+    let todayMatches,scheduledMatches;
+    if(cacheValid){
+      todayMatches=matchCache.todayMatches;
+      scheduledMatches=matchCache.scheduledMatches;
+    } else {
+      const [todayData, scheduledData] = await Promise.all([
+        apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
+        apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
+      ]);
+      todayMatches=todayData.matches||[];
+      scheduledMatches=scheduledData.matches||[];
+      matchCache={todayMatches,scheduledMatches,fetchedAt:Date.now()};
+    }
     liveMatches=todayMatches;
     const scheduledMatches=scheduledData.matches||[];
     // Combine: scheduled future matches for "next fixture"
@@ -1027,7 +1040,7 @@ async function renderMatches(){
 let _livePoller=null;
 function startLivePolling(){
   if(_livePoller)return;
-  _livePoller=setInterval(()=>renderMatches(),90000);
+  _livePoller=setInterval(()=>{matchCache.fetchedAt=0;renderMatches();},90000);
 }
 function stopLivePolling(){
   if(_livePoller){clearInterval(_livePoller);_livePoller=null;}
