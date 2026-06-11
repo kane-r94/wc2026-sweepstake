@@ -935,6 +935,7 @@ async function syncFromAPI(){
     state.lastSync=new Date().toISOString();save();
     const msg=`✓ Done: +${ng} group, +${nk} knockout${sk?' ('+sk+' already up to date)':''}.`;
     setSyncStatus(msg,'#085041');
+    renderMatches();
   }catch(err){
     console.error(err);
     const msg=err.message||'';
@@ -1078,8 +1079,8 @@ if(state.lastSync){
   setSyncStatus('Last synced: '+new Date(state.lastSync).toLocaleString(),'#7a8c8b');
 }
 
-// Auto-sync on page load
-setTimeout(()=>syncFromAPI(), 800);
+// Auto-sync and load fixtures on page load
+setTimeout(()=>{ syncFromAPI(); renderMatches(); }, 800);
 </script>
 </body>
 </html>
