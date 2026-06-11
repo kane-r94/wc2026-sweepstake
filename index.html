@@ -843,8 +843,10 @@ async function syncFromAPI(){
     for(const m of matches){
       const home=mapName(m.homeTeam?.name||'');
       const away=mapName(m.awayTeam?.name||'');
-      const s1=m.score?.fullTime?.home??0;
-      const s2=m.score?.fullTime?.away??0;
+      const rawS1=m.score?.fullTime?.home;
+      const rawS2=m.score?.fullTime?.away;
+      if(rawS1===null||rawS1===undefined||rawS2===null||rawS2===undefined)continue;
+      const s1=rawS1, s2=rawS2;
       const stage=m.stage||'';
       const dt=m.utcDate||new Date().toISOString();
       if(!home||!away)continue;
@@ -949,8 +951,13 @@ async function renderMatches(){
         const isPreMatch=status==='SCHEDULED'||status==='TIMED';
         const isLive=status==='IN_PLAY'||status==='PAUSED';
         const isFinished=status==='FINISHED';
-        const liveHome=m.score?.fullTime?.home??m.score?.regularTime?.home??m.score?.halfTime?.home;
-        const liveAway=m.score?.fullTime?.away??m.score?.regularTime?.away??m.score?.halfTime?.away;
+        let liveHome=m.score?.fullTime?.home??m.score?.regularTime?.home??m.score?.halfTime?.home;
+        let liveAway=m.score?.fullTime?.away??m.score?.regularTime?.away??m.score?.halfTime?.away;
+        // For finished matches, fall back to stored results if API score is null
+        if(isFinished&&(liveHome==null||liveAway==null)){
+          const stored=state.groupResults.find(r=>r.t1===home&&r.t2===away)||state.groupResults.find(r=>r.t1===away&&r.t2===home);
+          if(stored){liveHome=stored.t1===home?stored.s1:stored.s2;liveAway=stored.t1===home?stored.s2:stored.s1;}
+        }
         const scoreStr=isLive||isFinished
           ? ` ${liveHome??'?'} – ${liveAway??'?'}`:'';
         const stageLabel=stageTagLabel(m.stage||'GROUP_STAGE');
