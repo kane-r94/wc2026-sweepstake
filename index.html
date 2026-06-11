@@ -828,16 +828,11 @@ async function apiGet(path){
 }
 
 async function syncFromAPI(){
-  const btn=document.getElementById('sync-btn');
-  btn.disabled=true;btn.textContent='⏳ Syncing...';
-  setSyncStatus('Connecting to football-data.org...','#7a8c8b');
+  setSyncStatus('Syncing results...','#7a8c8b');
   try{
     const data=await apiGet('/competitions/WC/matches?status=FINISHED');
     const matches=data.matches||[];
-    if(!matches.length){
-      setSyncStatus('No finished matches yet — tournament may not have started.','#856404');
-      btn.disabled=false;btn.textContent='🔄 Sync Results';return;
-    }
+    if(!matches.length){return;}
     let ng=0,nk=0,sk=0;
     const KO_MAP={
       'ROUND_OF_32':'r32','LAST_32':'r32',
@@ -892,7 +887,6 @@ async function syncFromAPI(){
       setSyncStatus('Error: '+msg,'#c0392b');
     }
   }
-  btn.disabled=false;btn.textContent='🔄 Sync Results';
 }
 
 function setSyncStatus(msg,color){
