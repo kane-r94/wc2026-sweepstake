@@ -576,66 +576,12 @@ function renderLog(){}
 function gsGroupChange(){
   updateGsDropdowns();
 }
-function updateGsDropdowns(){
-  const g=document.getElementById('gs-grp').value;
-  const teams=GROUPS[g]||[];
-  const mk=teams.map(t=>`<option value="${t}">${FLAGS[t]||''} ${t}</option>`).join('');
-  document.getElementById('gs-t1').innerHTML=mk;
-  document.getElementById('gs-t2').innerHTML=mk;
-  if(teams[1])document.getElementById('gs-t2').value=teams[1];
-}
-function addGroupResult(){
-  const g=document.getElementById('gs-grp').value;
-  const t1=document.getElementById('gs-t1').value;
-  const t2=document.getElementById('gs-t2').value;
-  const s1=parseInt(document.getElementById('gs-s1').value)||0;
-  const s2=parseInt(document.getElementById('gs-s2').value)||0;
-  if(t1===t2){toast('Teams must be different');return;}
-  const id='g_'+Date.now().toString(36)+Math.random().toString(36).slice(2,4);
-  state.groupResults.push({id,g,t1,s1,t2,s2,date:new Date().toISOString()});
-  save();renderAll();toast(`Added: ${t1} ${s1}–${s2} ${t2}`);
-  document.getElementById('gs-s1').value=0;document.getElementById('gs-s2').value=0;
-}
-
-/* ── KO FORM ── */
-function setKoStage(s,el){
-  koStage=s;
-  document.querySelectorAll('.sp').forEach(b=>b.classList.remove('on'));
-  el.classList.add('on');
-  updateKoDropdowns();
-}
-function updateKoDropdowns(){
-  const n=koSlotCount(koStage);
-  const teams=[];
-  for(let i=0;i<n;i++){const t=getKoSlot(koStage+'_'+i);if(t&&!teams.includes(t))teams.push(t);}
-  if(!teams.length)ALL_TEAMS.forEach(t=>{if(!teams.includes(t))teams.push(t);});
-  const mk=teams.map(t=>`<option value="${t}">${FLAGS[t]||''} ${t}</option>`).join('');
-  document.getElementById('ko-t1').innerHTML=mk;
-  document.getElementById('ko-t2').innerHTML=mk;
-  if(teams[1])document.getElementById('ko-t2').value=teams[1];
-  syncKoPens();
-}
-function syncKoPens(){
-  const t1=document.getElementById('ko-t1').value;
-  const t2=document.getElementById('ko-t2').value;
-  const sp=document.getElementById('ko-pens');
-  sp.innerHTML=`<option value="">No pens</option><option value="${t1}">${FLAGS[t1]||''} ${t1} win pens</option><option value="${t2}">${FLAGS[t2]||''} ${t2} win pens</option>`;
-}
-function addKoResult(){
-  const t1=document.getElementById('ko-t1').value;
-  const t2=document.getElementById('ko-t2').value;
-  const s1=parseInt(document.getElementById('ko-s1').value)||0;
-  const s2=parseInt(document.getElementById('ko-s2').value)||0;
-  const pens=document.getElementById('ko-pens').value;
-  if(t1===t2){toast('Teams must be different');return;}
-  const winner=pens||(s1>s2?t1:s2>s1?t2:null);
-  if(!winner){alert('Scores level — pick a penalties winner.');return;}
-  const id='k_'+Date.now().toString(36)+Math.random().toString(36).slice(2,4);
-  state.koResults.push({id,stage:koStage,t1,s1,t2,s2,pens,winner,date:new Date().toISOString()});
-  applyKoWinner(koStage,t1,t2,winner);
-  save();renderAll();toast(`Added: ${t1} ${s1}–${s2} ${t2}${pens?' (pens)':''}`);
-  document.getElementById('ko-s1').value=0;document.getElementById('ko-s2').value=0;
-}
+function updateGsDropdowns(){}
+function addGroupResult(){}
+function setKoStage(){}
+function updateKoDropdowns(){}
+function syncKoPens(){}
+function addKoResult(){}
 
 /* ── REMOVE / CLEAR ── */
 function removeResult(id,type){
@@ -874,17 +820,10 @@ async function apiGet(path){
     setSyncStatus(`Rate limit reached — waiting ${Math.ceil(wait/1000)}s...`,'#856404');
     await new Promise(r=>setTimeout(r,wait));
   }
-  // allorigins.win/get always sends CORS headers; token passed as URL param
-  const sep=path.includes('?')?'&':'?';
-  const apiUrl=API_BASE+path+sep+'token='+API_TOKEN;
-  const url='https://api.allorigins.win/get?url='+encodeURIComponent(apiUrl)+'&_t='+Date.now();
-  const wrapper=await fetch(url,{cache:'no-store'});
-  if(!wrapper.ok){throw new Error(wrapper.status+': proxy error');}
-  const json=await wrapper.json();
-  if(!json.contents){throw new Error('Empty proxy response');}
-  const data=JSON.parse(json.contents);
-  if(data.errorCode){throw new Error(data.errorCode+': '+data.message);}
-  return data;
+  const url='https://corsproxy.io/?url='+encodeURIComponent(API_BASE+path)+'&_cb='+Date.now();
+  const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
+  if(!res.ok){const t=await res.text();throw new Error(res.status+': '+t);}
+  return res.json();
 }
 
 async function syncFromAPI(){
