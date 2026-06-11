@@ -869,7 +869,9 @@ async function apiGet(path){
     setSyncStatus(`Rate limit reached — waiting ${Math.ceil(wait/1000)}s...`,'#856404');
     await new Promise(r=>setTimeout(r,wait));
   }
-  const res=await fetch(API_BASE+path,{headers:{'X-Auth-Token':API_TOKEN}});
+  const CORS_PROXY='https://corsproxy.io/?url=';
+  const url=CORS_PROXY+encodeURIComponent(API_BASE+path);
+  const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN}});
   const rem=res.headers.get('X-RateLimit-Remaining');
   const rst=res.headers.get('X-RateLimit-Reset');
   if(rem!==null)rlRemaining=parseInt(rem);
