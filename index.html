@@ -948,8 +948,7 @@ async function apiGet(path){
     setSyncStatus(`Rate limit reached — waiting ${Math.ceil(wait/1000)}s...`,'#856404');
     await new Promise(r=>setTimeout(r,wait));
   }
-  const CORS_PROXY='https://corsproxy.io/?url=';
-  const url=CORS_PROXY+encodeURIComponent(API_BASE+path)+'&_cb='+Date.now();
+  const url='https://api.allorigins.win/raw?url='+encodeURIComponent(API_BASE+path);
   const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
   const rem=res.headers.get('X-RateLimit-Remaining');
   const rst=res.headers.get('X-RateLimit-Reset');
@@ -1051,14 +1050,19 @@ async function renderMatches(){
   todayDate.textContent=todayLabel;
 
   try{
-    // Fetch scheduled + live + finished for today, plus all scheduled upcoming
-    const [todayData, scheduledData] = await Promise.all([
+    // Fetch today's matches, live matches explicitly, and upcoming scheduled
+    const [todayData, liveData, scheduledData] = await Promise.all([
       apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
+      apiGet('/competitions/WC/matches?status=IN_PLAY,PAUSED'),
       apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
     ]);
 
-    const todayMatches=todayData.matches||[];
-    liveMatches=todayMatches; // expose to group standings
+    // Merge: live matches override same match from today (by id)
+    const liveById=new Map((liveData.matches||[]).map(m=>[m.id,m]));
+    const todayMatches=(todayData.matches||[]).map(m=>liveById.get(m.id)||m);
+    // Also add any live matches not in today's date range (shouldn't happen but safe)
+    (liveData.matches||[]).forEach(m=>{if(!todayMatches.find(t=>t.id===m.id))todayMatches.push(m);});
+    liveMatches=todayMatches;
     const scheduledMatches=scheduledData.matches||[];
     // Combine: scheduled future matches for "next fixture"
     const allUpcoming=[...scheduledMatches];
