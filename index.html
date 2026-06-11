@@ -1052,18 +1052,13 @@ async function renderMatches(){
   todayDate.textContent=todayLabel;
 
   try{
-    // Fetch today's matches, live matches explicitly, and upcoming scheduled
-    const [todayData, liveData, scheduledData] = await Promise.all([
+    // 2 calls: today's matches (all statuses) + upcoming for next-fixture panel
+    const [todayData, scheduledData] = await Promise.all([
       apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
-      apiGet('/competitions/WC/matches?status=IN_PLAY,PAUSED'),
       apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
     ]);
 
-    // Merge: live matches override same match from today (by id)
-    const liveById=new Map((liveData.matches||[]).map(m=>[m.id,m]));
-    const todayMatches=(todayData.matches||[]).map(m=>liveById.get(m.id)||m);
-    // Also add any live matches not in today's date range (shouldn't happen but safe)
-    (liveData.matches||[]).forEach(m=>{if(!todayMatches.find(t=>t.id===m.id))todayMatches.push(m);});
+    const todayMatches=todayData.matches||[];
     liveMatches=todayMatches;
     const scheduledMatches=scheduledData.matches||[];
     // Combine: scheduled future matches for "next fixture"
@@ -1166,7 +1161,7 @@ async function renderMatches(){
 let _livePoller=null;
 function startLivePolling(){
   if(_livePoller)return;
-  _livePoller=setInterval(()=>renderMatches(),60000);
+  _livePoller=setInterval(()=>renderMatches(),90000);
 }
 function stopLivePolling(){
   if(_livePoller){clearInterval(_livePoller);_livePoller=null;}
