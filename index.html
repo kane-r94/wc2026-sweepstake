@@ -992,7 +992,7 @@ async function renderMatches(){
     // Fetch scheduled + live + finished for today, plus all scheduled upcoming
     const [todayData, scheduledData] = await Promise.all([
       apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
-      apiGet('/competitions/WC/matches?status=SCHEDULED')
+      apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
     ]);
 
     const todayMatches=todayData.matches||[];
@@ -1011,13 +1011,15 @@ async function renderMatches(){
         const ko=new Date(m.utcDate);
         const timeStr=ko.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'});
         const status=m.status||'SCHEDULED';
-        const scoreStr=status==='FINISHED'||status==='IN_PLAY'||status==='PAUSED'
+        const isPreMatch=status==='SCHEDULED'||status==='TIMED';
+        const isLive=status==='IN_PLAY'||status==='PAUSED';
+        const isFinished=status==='FINISHED';
+        const scoreStr=isLive||isFinished
           ? ` ${m.score?.fullTime?.home??'?'} – ${m.score?.fullTime?.away??'?'}`:'';
         const stageLabel=stageTagLabel(m.stage||'GROUP_STAGE');
-        // Which entrants have a team in this match?
         const involved=ENTRANTS.filter(e=>e.t.includes(home)||e.t.includes(away)).map(e=>e.n);
-        const entrantStr=involved.length?'<div class="tm-entrants">⭐ '+involved.join(' · ')+'</div>':''  ;
-        const statusBadge=status==='FINISHED'?'<span style="font-size:10px;color:#888;margin-left:6px">FT</span>':
+        const entrantStr=involved.length?'<div class="tm-entrants">⭐ '+involved.join(' · ')+'</div>':'';
+        const statusBadge=isFinished?'<span style="font-size:10px;color:#888;margin-left:6px">FT</span>':
                           status==='IN_PLAY'?'<span style="font-size:10px;color:#18706E;font-weight:700;margin-left:6px">LIVE</span>':
                           status==='PAUSED'?'<span style="font-size:10px;color:#856404;margin-left:6px">HT</span>':'';
         return `<div class="today-match">
@@ -1025,7 +1027,7 @@ async function renderMatches(){
             <div class="tm-teams">${FLAGS[home]||''} ${home}<span class="vs">vs</span>${FLAGS[away]||''} ${away}${scoreStr?'<strong style="color:var(--teal);margin-left:6px">'+ scoreStr+'</strong>':''} ${statusBadge}<span class="stage-tag">${stageLabel}</span></div>
             ${entrantStr}
           </div>
-          <div class="tm-time">${status==='SCHEDULED'?timeStr:''}</div>
+          <div class="tm-time">${isPreMatch?timeStr:''}</div>
         </div>`;
       }).join('');
     }
