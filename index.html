@@ -852,8 +852,6 @@ async function syncFromAPI(){
       if(!home||!away)continue;
       const id_g='api_g_'+m.id, id_k='api_k_'+m.id;
       if(stage==='GROUP_STAGE'){
-        const already=state.groupResults.some(r=>r.id===id_g);
-        if(already){sk++;continue;}
         const grp=TEAM_GROUP[home]||TEAM_GROUP[away]||'?';
         state.groupResults=state.groupResults.filter(r=>r.id!==id_g);
         state.groupResults.push({id:id_g,g:grp,t1:home,s1,t2:away,s2,date:dt});
