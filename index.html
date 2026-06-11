@@ -351,16 +351,30 @@ function save(){localStorage.setItem('wc26all',JSON.stringify(state));}
 function load(){const s=localStorage.getItem('wc26all');if(s){try{state=JSON.parse(s);}catch(e){}}}
 
 /* ── GROUP STAGE LOGIC ── */
+function applyMatchToStandings(st,t1,s1,t2,s2){
+  if(!st[t1]||!st[t2])return;
+  st[t1].played++;st[t2].played++;
+  st[t1].gf+=s1;st[t1].ga+=s2;st[t2].gf+=s2;st[t2].ga+=s1;
+  if(s1>s2){st[t1].w++;st[t1].pts+=3;st[t2].l++;}
+  else if(s1<s2){st[t2].w++;st[t2].pts+=3;st[t1].l++;}
+  else{st[t1].d++;st[t2].d++;st[t1].pts++;st[t2].pts++;}
+}
 function getGroupStandings(g){
   const teams=GROUPS[g];
   const st={};teams.forEach(t=>{st[t]={w:0,d:0,l:0,gf:0,ga:0,pts:0,played:0};});
   state.groupResults.filter(r=>r.g===g).forEach(r=>{
-    const{t1,s1,t2,s2}=r;
-    st[t1].played++;st[t2].played++;
-    st[t1].gf+=s1;st[t1].ga+=s2;st[t2].gf+=s2;st[t2].ga+=s1;
-    if(s1>s2){st[t1].w++;st[t1].pts+=3;st[t2].l++;}
-    else if(s1<s2){st[t2].w++;st[t2].pts+=3;st[t1].l++;}
-    else{st[t1].d++;st[t2].d++;st[t1].pts++;st[t2].pts++;}
+    applyMatchToStandings(st,r.t1,r.s1,r.t2,r.s2);
+  });
+  // Overlay live/in-progress group matches (skip if already in state.groupResults)
+  const finishedIds=new Set(state.groupResults.map(r=>String(r.id)));
+  liveMatches.filter(m=>m.stage==='GROUP_STAGE'&&(m.status==='IN_PLAY'||m.status==='PAUSED')).forEach(m=>{
+    const t1=mapName(m.homeTeam?.name||'');
+    const t2=mapName(m.awayTeam?.name||'');
+    if(!teams.includes(t1)&&!teams.includes(t2))return;
+    if(finishedIds.has('api_g_'+m.id))return;
+    const s1=m.score?.fullTime?.home??0;
+    const s2=m.score?.fullTime?.away??0;
+    applyMatchToStandings(st,t1,s1,t2,s2);
   });
   return teams.map(t=>({team:t,...st[t],gd:st[t].gf-st[t].ga}))
     .sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
@@ -524,6 +538,8 @@ function renderGroups(){
   grid.innerHTML=Object.entries(GROUPS).map(([g,teams])=>{
     const s=getGroupStandings(g);
     const owners=ENTRANTS.filter(e=>e.t.some(t=>teams.includes(t))).map(e=>e.n).join(', ');
+    const hasLiveInGroup=liveMatches.some(m=>(m.status==='IN_PLAY'||m.status==='PAUSED')&&m.stage==='GROUP_STAGE'&&teams.includes(mapName(m.homeTeam?.name||'')));
+    const liveBadge=hasLiveInGroup?'<span style="font-size:10px;font-weight:700;color:#fff;background:#18706E;border-radius:4px;padding:1px 5px;margin-left:6px">LIVE</span>':'';
     const rows=s.map((row,i)=>{
       const isOut=state.teamStage[row.team]==='out';
       const q=i<2?'q':i===2?'q3':'';
@@ -535,7 +551,7 @@ function renderGroups(){
         <td>${row.gf}:${row.ga}</td><td class="pts">${row.pts}</td>
       </tr>`;
     }).join('');
-    return `<div class="gc"><div class="gch">Group ${g}<span class="ge">${owners}</span></div>
+    return `<div class="gc"><div class="gch">Group ${g}${liveBadge}<span class="ge">${owners}</span></div>
       <table class="st"><thead><tr><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }).join('');
@@ -861,6 +877,7 @@ const API_NAME_MAP={
 function mapName(n){return API_NAME_MAP[n]||n;}
 
 let rlRemaining=10,rlReset=0;
+let liveMatches=[];
 
 async function apiGet(path){
   const now=Date.now()/1000;
@@ -979,6 +996,7 @@ async function renderMatches(){
     ]);
 
     const todayMatches=todayData.matches||[];
+    liveMatches=todayMatches; // expose to group standings
     const scheduledMatches=scheduledData.matches||[];
     // Combine: scheduled future matches for "next fixture"
     const allUpcoming=[...scheduledMatches];
@@ -1052,6 +1070,9 @@ async function renderMatches(){
     });
     nextBody.innerHTML=rows.join('');
     nextSub.textContent='Times shown in BST (British Summer Time)';
+
+    // Refresh group tables with live scores
+    renderGroups();
 
     // Auto-poll every 60s while any match is live
     const hasLive=todayMatches.some(m=>m.status==='IN_PLAY'||m.status==='PAUSED');
