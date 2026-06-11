@@ -213,7 +213,6 @@ table.st tr.el td{color:#bbb}
     <button class="nav-tab"     onclick="tab('mx',this)">📅 Matches</button>
     <button class="nav-tab"     onclick="tab('gs',this)">⚽ Groups</button>
     <button class="nav-tab"     onclick="tab('ko',this)">⚡ Bracket</button>
-    <button class="nav-tab"     onclick="tab('er',this)">📋 Enter Results</button>
   </div>
 </div>
 
@@ -279,62 +278,6 @@ table.st tr.el td{color:#bbb}
   </div>
 </div>
 
-<!-- ══ ENTER RESULTS ════════════════════════════════════════════════════════ -->
-<div class="panel" id="panel-er">
-
-  <div class="entry-card">
-    <h3>Group Stage Result</h3>
-    <div class="form-row">
-      <div class="fg"><label>Group</label>
-        <select id="gs-grp" onchange="gsGroupChange()">
-          <option>A</option><option>B</option><option>C</option><option>D</option>
-          <option>E</option><option>F</option><option>G</option><option>H</option>
-          <option>I</option><option>J</option><option>K</option><option>L</option>
-        </select>
-      </div>
-      <div class="fg"><label>Team 1</label><select id="gs-t1"></select></div>
-      <div class="fg"><label>Score</label><input type="number" id="gs-s1" min="0" value="0"></div>
-      <div class="vs">–</div>
-      <div class="fg"><label>Score</label><input type="number" id="gs-s2" min="0" value="0"></div>
-      <div class="fg"><label>Team 2</label><select id="gs-t2"></select></div>
-      <button class="btn btn-teal" onclick="addGroupResult()" style="align-self:flex-end">+ Add</button>
-    </div>
-  </div>
-
-  <div class="entry-card">
-    <h3>Knockout Result</h3>
-    <div class="stage-pills" id="ko-stage-pills">
-      <button class="sp on" onclick="setKoStage('r32',this)">Round of 32</button>
-      <button class="sp" onclick="setKoStage('r16',this)">Round of 16</button>
-      <button class="sp" onclick="setKoStage('qf',this)">Quarter-Final</button>
-      <button class="sp" onclick="setKoStage('sf',this)">Semi-Final</button>
-      <button class="sp" onclick="setKoStage('final',this)">Final</button>
-    </div>
-    <div class="form-row">
-      <div class="fg"><label>Team 1</label><select id="ko-t1" onchange="syncKoPens()"></select></div>
-      <div class="fg"><label>Score</label><input type="number" id="ko-s1" min="0" value="0"></div>
-      <div class="vs">–</div>
-      <div class="fg"><label>Score</label><input type="number" id="ko-s2" min="0" value="0"></div>
-      <div class="fg"><label>Team 2</label><select id="ko-t2" onchange="syncKoPens()"></select></div>
-      <div class="fg"><label>Penalties</label>
-        <select id="ko-pens"><option value="">No pens</option></select>
-      </div>
-      <button class="btn btn-teal" onclick="addKoResult()" style="align-self:flex-end">+ Add</button>
-    </div>
-  </div>
-
-  <div class="entry-card">
-    <h3>Results entered — <span id="res-count">0</span></h3>
-    <div class="rlog" id="rlog"><div class="empty">No results yet</div></div>
-    <div class="data-ops">
-      <button class="btn btn-ghost" onclick="exportSave()">💾 Save / export</button>
-      <button class="btn btn-ghost" onclick="document.getElementById('fimp').click()">📂 Load save</button>
-      <button class="btn btn-red" onclick="clearAll()" style="margin-left:auto">🗑 Reset all</button>
-    </div>
-    <input type="file" id="fimp" accept=".json" style="display:none" onchange="importSave(event)">
-  </div>
-
-</div>
 </div>
 
 <div class="toast" id="toast"></div>
