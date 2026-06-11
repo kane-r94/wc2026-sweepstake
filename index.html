@@ -570,24 +570,7 @@ function renderGroups(){
   } else {q3note.style.display='none';}
 }
 
-function renderLog(){
-  const all=[
-    ...state.groupResults.map(r=>({...r,type:'group'})),
-    ...state.koResults.map(r=>({...r,type:'ko'}))
-  ].sort((a,b)=>b.date>a.date?1:-1);
-  document.getElementById('res-count').textContent=all.length;
-  const el=document.getElementById('rlog');
-  if(!all.length){el.innerHTML='<div class="empty">No results yet</div>';return;}
-  el.innerHTML=all.map(r=>{
-    const stg=r.type==='group'?`Grp ${r.g}`:r.stage.toUpperCase();
-    const pens=r.pens?` (pens ${FLAGS[r.pens]||r.pens})`:'';
-    return `<div class="ritem">
-      <span class="stg">${stg}</span>
-      ${FLAGS[r.t1]||''} ${r.t1} <span class="sc">${r.s1}–${r.s2}</span> ${r.t2} ${FLAGS[r.t2]||''}${pens}
-      <button onclick="removeResult('${r.id}','${r.type}')">×</button>
-    </div>`;
-  }).join('');
-}
+function renderLog(){}
 
 /* ── GROUP FORM ── */
 function gsGroupChange(){
@@ -891,18 +874,17 @@ async function apiGet(path){
     setSyncStatus(`Rate limit reached — waiting ${Math.ceil(wait/1000)}s...`,'#856404');
     await new Promise(r=>setTimeout(r,wait));
   }
-  // Pass token as URL param (football-data.org v4 supports ?token=)
-  // Use allorigins.win (no server-side cache) with cache-buster on proxy URL only
+  // allorigins.win/get always sends CORS headers; token passed as URL param
   const sep=path.includes('?')?'&':'?';
   const apiUrl=API_BASE+path+sep+'token='+API_TOKEN;
-  const url='https://api.allorigins.win/raw?url='+encodeURIComponent(apiUrl)+'&_t='+Date.now();
-  const res=await fetch(url,{cache:'no-store'});
-  const rem=res.headers.get('X-RateLimit-Remaining');
-  const rst=res.headers.get('X-RateLimit-Reset');
-  if(rem!==null)rlRemaining=parseInt(rem);
-  if(rst!==null)rlReset=parseInt(rst);
-  if(!res.ok){const t=await res.text();throw new Error(res.status+': '+t);}
-  return res.json();
+  const url='https://api.allorigins.win/get?url='+encodeURIComponent(apiUrl)+'&_t='+Date.now();
+  const wrapper=await fetch(url,{cache:'no-store'});
+  if(!wrapper.ok){throw new Error(wrapper.status+': proxy error');}
+  const json=await wrapper.json();
+  if(!json.contents){throw new Error('Empty proxy response');}
+  const data=JSON.parse(json.contents);
+  if(data.errorCode){throw new Error(data.errorCode+': '+data.message);}
+  return data;
 }
 
 async function syncFromAPI(){
