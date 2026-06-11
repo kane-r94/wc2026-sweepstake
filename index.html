@@ -891,10 +891,12 @@ async function apiGet(path){
     setSyncStatus(`Rate limit reached — waiting ${Math.ceil(wait/1000)}s...`,'#856404');
     await new Promise(r=>setTimeout(r,wait));
   }
+  // Pass token as URL param (football-data.org v4 supports ?token=)
+  // Use allorigins.win (no server-side cache) with cache-buster on proxy URL only
   const sep=path.includes('?')?'&':'?';
-  const cacheBust=sep+'_t='+Date.now();
-  const url='https://corsproxy.io/?url='+encodeURIComponent(API_BASE+path+cacheBust);
-  const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN,'Cache-Control':'no-cache','Pragma':'no-cache'},cache:'no-store'});
+  const apiUrl=API_BASE+path+sep+'token='+API_TOKEN;
+  const url='https://api.allorigins.win/raw?url='+encodeURIComponent(apiUrl)+'&_t='+Date.now();
+  const res=await fetch(url,{cache:'no-store'});
   const rem=res.headers.get('X-RateLimit-Remaining');
   const rst=res.headers.get('X-RateLimit-Reset');
   if(rem!==null)rlRemaining=parseInt(rem);
