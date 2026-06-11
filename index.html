@@ -133,6 +133,68 @@ table.st tr.el td{color:#bbb}
 .q3-note{font-size:11px;color:var(--muted);padding:8px 12px;background:#fff;border:1px solid var(--border);border-radius:7px;margin-bottom:12px}
 /* Scroll helper for bracket */
 #bcanvas{display:block}
+
+/* ── MOBILE ─────────────────────────────────────────────── */
+@media(max-width:600px){
+  body{font-size:12px}
+
+  /* Topbar */
+  .topbar{padding:0 14px;height:44px}
+  .tl{font-size:13px}
+  .tr{display:none}
+
+  /* Hero */
+  .hero{padding:12px 14px 0}
+  .hero h1{font-size:17px}
+  .hero-sub{font-size:10px;margin-bottom:10px}
+
+  /* Nav tabs — scroll horizontally, don't wrap */
+  .nav-tabs{overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;gap:1px;scrollbar-width:none}
+  .nav-tabs::-webkit-scrollbar{display:none}
+  .nav-tab{padding:8px 12px;font-size:11px;white-space:nowrap;flex-shrink:0}
+
+  /* Main content */
+  .main{padding:12px 10px}
+
+  /* Leaderboard — make table scroll or hide less important cols */
+  .legend{flex-direction:column;gap:5px;font-size:10px}
+  table.lbt th,table.lbt td{padding:7px 6px;font-size:11px}
+  .lbchips{gap:3px}
+  .chip{font-size:9px;padding:2px 5px}
+  .lbpts{font-size:12px}
+  .sbadge{font-size:8px;padding:1px 4px}
+
+  /* Matches tab — today's matches */
+  .card-head{padding:9px 12px}
+  #mx-today-body{padding:8px 12px !important}
+  .today-match{flex-direction:column;align-items:flex-start;gap:4px;padding:10px 0}
+  .tm-teams{font-size:12px;line-height:1.4}
+  .tm-time{margin-left:0;font-size:11px}
+
+  /* Next fixture rows — stack name above fixture */
+  .next-row{flex-wrap:wrap;padding:10px 12px;gap:4px}
+  .nr-name{width:100%;font-size:12px;margin-bottom:2px}
+  .nr-fixture{font-size:11px;width:100%}
+  .nr-when{font-size:11px}
+  .nr-date{font-size:10px}
+
+  /* Groups grid — single column */
+  .groups-grid{grid-template-columns:1fr;gap:10px}
+  .gch .ge{max-width:120px;font-size:8px}
+  table.st td,table.st th{padding:5px 4px;font-size:10px}
+  table.st td:first-child,table.st th:first-child{padding-left:8px}
+
+  /* Entry forms */
+  .entry-card{padding:12px}
+  .form-row{gap:6px}
+
+  /* Data ops buttons */
+  .data-ops{gap:6px}
+  .btn{padding:7px 12px;font-size:11px}
+
+  /* Toast */
+  .toast{bottom:12px;right:12px;left:12px;text-align:center}
+}
 </style>
 </head>
 <body>
