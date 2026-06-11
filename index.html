@@ -887,8 +887,10 @@ async function apiGet(path){
     await new Promise(r=>setTimeout(r,wait));
   }
   const CORS_PROXY='https://corsproxy.io/?url=';
-  const url=CORS_PROXY+encodeURIComponent(API_BASE+path);
-  const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN}});
+  const sep=path.includes('?')?'&':'?';
+  const bust=sep+'_cb='+Date.now();
+  const url=CORS_PROXY+encodeURIComponent(API_BASE+path+bust);
+  const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
   const rem=res.headers.get('X-RateLimit-Remaining');
   const rst=res.headers.get('X-RateLimit-Reset');
   if(rem!==null)rlRemaining=parseInt(rem);
@@ -1014,8 +1016,10 @@ async function renderMatches(){
         const isPreMatch=status==='SCHEDULED'||status==='TIMED';
         const isLive=status==='IN_PLAY'||status==='PAUSED';
         const isFinished=status==='FINISHED';
+        const liveHome=m.score?.fullTime?.home??m.score?.regularTime?.home??m.score?.halfTime?.home;
+        const liveAway=m.score?.fullTime?.away??m.score?.regularTime?.away??m.score?.halfTime?.away;
         const scoreStr=isLive||isFinished
-          ? ` ${m.score?.fullTime?.home??'?'} – ${m.score?.fullTime?.away??'?'}`:'';
+          ? ` ${liveHome??'?'} – ${liveAway??'?'}`:'';
         const stageLabel=stageTagLabel(m.stage||'GROUP_STAGE');
         const involved=ENTRANTS.filter(e=>e.t.includes(home)||e.t.includes(away)).map(e=>e.n);
         const entrantStr=involved.length?'<div class="tm-entrants">⭐ '+involved.join(' · ')+'</div>':'';
