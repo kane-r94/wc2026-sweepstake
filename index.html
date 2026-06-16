@@ -213,6 +213,7 @@ table.st tr.el td{color:#bbb}
     <button class="nav-tab"     onclick="tab('mx',this)">📅 Matches</button>
     <button class="nav-tab"     onclick="tab('gs',this)">⚽ Groups</button>
     <button class="nav-tab"     onclick="tab('ko',this)">⚡ Bracket</button>
+    <button class="nav-tab"     onclick="tab('am',this)">📋 All Results</button>
   </div>
 </div>
 
@@ -266,6 +267,19 @@ table.st tr.el td{color:#bbb}
 <div class="panel" id="panel-gs">
   <div class="q3-note" id="q3-note" style="display:none"></div>
   <div class="groups-grid" id="groups-grid"></div>
+</div>
+
+<!-- ══ ALL RESULTS ═══════════════════════════════════════════════════════════ -->
+<div class="panel" id="panel-am">
+  <div class="card">
+    <div class="card-head">
+      <h2>All Matches</h2>
+      <span class="sub" id="am-sub">Loading…</span>
+    </div>
+    <div id="am-body" style="padding:12px 16px">
+      <div class="empty">Loading all fixtures…</div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ BRACKET ══════════════════════════════════════════════════════════════ -->
@@ -614,6 +628,7 @@ function tab(id,el){
   el.classList.add('on');
   if(id==='ko')drawBracket();
   if(id==='mx')renderMatches();
+  if(id==='am')renderAllMatches();
 }
 
 /* ── TOAST ── */
@@ -830,7 +845,7 @@ async function apiGet(path){
 async function syncFromAPI(){
   setSyncStatus('Syncing results...','#7a8c8b');
   try{
-    const data=await apiGet('/competitions/WC/matches?status=FINISHED');
+    const data=await apiGet('/competitions/WC/matches?status=FINISHED&limit=500');
     const matches=data.matches||[];
     if(!matches.length){return;}
     let ng=0,nk=0,sk=0;
@@ -1033,6 +1048,72 @@ async function renderMatches(){
       nextBody.innerHTML='';
     }
   }
+}
+
+/* ── ALL RESULTS TAB ── */
+let allMatchCache={matches:null,fetchedAt:0};
+async function renderAllMatches(){
+  const body=document.getElementById('am-body');
+  const sub=document.getElementById('am-sub');
+  const CACHE_TTL=120000;
+  const cacheValid=allMatchCache.matches&&(Date.now()-allMatchCache.fetchedAt)<CACHE_TTL;
+  if(!cacheValid){
+    body.innerHTML='<div class="empty">Fetching all fixtures…</div>';
+    try{
+      const data=await apiGet('/competitions/WC/matches?limit=500');
+      allMatchCache={matches:data.matches||[],fetchedAt:Date.now()};
+    }catch(err){
+      body.innerHTML='<div class="empty">Could not load: '+err.message+'</div>';return;
+    }
+  }
+  const matches=allMatchCache.matches;
+  const finished=matches.filter(m=>m.status==='FINISHED').length;
+  const live=matches.filter(m=>m.status==='IN_PLAY'||m.status==='PAUSED').length;
+  sub.textContent=`${finished} played · ${live} live · ${matches.length-finished-live} upcoming`;
+
+  // Group by date
+  const byDate={};
+  matches.forEach(m=>{
+    const d=m.utcDate.slice(0,10);
+    if(!byDate[d])byDate[d]=[];
+    byDate[d].push(m);
+  });
+
+  body.innerHTML=Object.entries(byDate).sort(([a],[b])=>a>b?1:-1).map(([date,ms])=>{
+    const label=new Date(date+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+    const rows=ms.map(m=>{
+      const home=mapName(m.homeTeam?.name||'TBD');
+      const away=mapName(m.awayTeam?.name||'TBD');
+      const status=m.status||'SCHEDULED';
+      const isFinished=status==='FINISHED';
+      const isLive=status==='IN_PLAY'||status==='PAUSED';
+      const isPreMatch=status==='SCHEDULED'||status==='TIMED';
+      const s1=m.score?.fullTime?.home;
+      const s2=m.score?.fullTime?.away;
+      const scoreHtml=isFinished&&s1!==null&&s1!==undefined
+        ?`<strong style="color:var(--teal)">${s1} – ${s2}</strong> <span style="font-size:10px;color:#888">FT</span>`
+        :isLive&&s1!==null&&s1!==undefined
+        ?`<strong style="color:var(--teal)">${s1} – ${s2}</strong> <span style="font-size:10px;color:var(--teal);font-weight:700">LIVE</span>`
+        :isPreMatch
+        ?`<span style="color:var(--teal);font-weight:600">${new Date(m.utcDate).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'})} BST</span>`
+        :`<span style="color:#bbb">–</span>`;
+      const stageLabel=stageTagLabel(m.stage||'GROUP_STAGE');
+      const involved=ENTRANTS.filter(e=>e.t.includes(home)||e.t.includes(away)).map(e=>e.n).join(' · ');
+      // Flag missing from stored results
+      const storedGrp=state.groupResults.find(r=>(r.t1===home&&r.t2===away)||(r.t1===away&&r.t2===home));
+      const missingBadge=isFinished&&!storedGrp?'<span style="font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-left:6px">⚠ not synced</span>':'';
+      return `<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap">
+        <span style="font-size:10px;background:#f0f4f3;border-radius:4px;padding:2px 6px;color:var(--muted);flex-shrink:0">${stageLabel}</span>
+        <span style="flex:1;font-size:12px;font-weight:600">${FLAGS[home]||''} ${home} <span style="color:var(--muted);font-weight:400;font-size:11px">vs</span> ${FLAGS[away]||''} ${away}${missingBadge}</span>
+        <span style="font-size:12px;text-align:right">${scoreHtml}</span>
+        ${involved?`<span style="width:100%;font-size:10px;color:var(--teal);padding-left:52px">⭐ ${involved}</span>`:''}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:6px 0 4px">${label}</div>
+      ${rows}
+    </div>`;
+  }).join('');
 }
 
 let _livePoller=null;
