@@ -838,24 +838,33 @@ async function apiGet(path){
   }
   const cb=Date.now();
   const sep=path.includes('?')?'&':'?';
+  const apiUrlWithToken=API_BASE+path+sep+'token='+API_TOKEN;
 
-  // Proxy 1: corsproxy.io — forwards headers, reliable when up
+  // Proxy 1: corsproxy.io — forwards headers
   try{
-    const url='https://corsproxy.io/?url='+encodeURIComponent(API_BASE+path)+'&_cb='+cb;
-    const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
+    const res=await fetch('https://corsproxy.io/?url='+encodeURIComponent(API_BASE+path)+'&_cb='+cb,
+      {headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
     if(res.ok)return res.json();
   }catch(_){}
 
-  // Proxy 2: allorigins.win — token as URL param (doesn't need forwarded headers)
-  const apiUrl=API_BASE+path+sep+'token='+API_TOKEN;
-  const url2='https://api.allorigins.win/get?url='+encodeURIComponent(apiUrl)+'&_cb='+cb;
-  const res2=await fetch(url2,{cache:'no-store'});
-  if(!res2.ok)throw new Error('Both proxies failed ('+res2.status+')');
-  const json=await res2.json();
-  if(!json.contents)throw new Error('Empty proxy response');
-  const data=JSON.parse(json.contents);
-  if(data.errorCode)throw new Error(data.errorCode+': '+data.message);
-  return data;
+  // Proxy 2: codetabs — token as URL param
+  try{
+    const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(apiUrlWithToken)+'&_cb='+cb,
+      {cache:'no-store'});
+    if(res.ok){const d=await res.json();if(!d.errorCode)return d;}
+  }catch(_){}
+
+  // Proxy 3: allorigins.win — token as URL param, JSON wrapper
+  try{
+    const res=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(apiUrlWithToken)+'&_cb='+cb,
+      {cache:'no-store'});
+    if(res.ok){
+      const j=await res.json();
+      if(j.contents){const d=JSON.parse(j.contents);if(!d.errorCode)return d;}
+    }
+  }catch(_){}
+
+  throw new Error('All proxies failed — if you have an ad blocker or privacy extension, try disabling it for this page, or open in a private window.');
 }
 
 async function syncFromAPI(){
