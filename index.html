@@ -836,10 +836,26 @@ async function apiGet(path){
     setSyncStatus(`Rate limit reached — waiting ${Math.ceil(wait/1000)}s...`,'#856404');
     await new Promise(r=>setTimeout(r,wait));
   }
-  const url='https://corsproxy.io/?url='+encodeURIComponent(API_BASE+path)+'&_cb='+Date.now();
-  const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
-  if(!res.ok){const t=await res.text();throw new Error(res.status+': '+t);}
-  return res.json();
+  const cb=Date.now();
+  const sep=path.includes('?')?'&':'?';
+
+  // Proxy 1: corsproxy.io — forwards headers, reliable when up
+  try{
+    const url='https://corsproxy.io/?url='+encodeURIComponent(API_BASE+path)+'&_cb='+cb;
+    const res=await fetch(url,{headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
+    if(res.ok)return res.json();
+  }catch(_){}
+
+  // Proxy 2: allorigins.win — token as URL param (doesn't need forwarded headers)
+  const apiUrl=API_BASE+path+sep+'token='+API_TOKEN;
+  const url2='https://api.allorigins.win/get?url='+encodeURIComponent(apiUrl)+'&_cb='+cb;
+  const res2=await fetch(url2,{cache:'no-store'});
+  if(!res2.ok)throw new Error('Both proxies failed ('+res2.status+')');
+  const json=await res2.json();
+  if(!json.contents)throw new Error('Empty proxy response');
+  const data=JSON.parse(json.contents);
+  if(data.errorCode)throw new Error(data.errorCode+': '+data.message);
+  return data;
 }
 
 async function syncFromAPI(){
