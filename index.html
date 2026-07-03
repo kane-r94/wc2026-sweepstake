@@ -429,10 +429,14 @@ function applyKoWinner(stage,t1,t2,winner){
   const si=stages.indexOf(stage);
   if(si<0)return;
   const nextStage=stages[si+1];
-  if(!nextStage)return;
+  // Always update teamStage regardless of whether we can find the bracket slot
+  state.teamStage[winner]=stage;
+  const loser=winner===t1?t2:t1;
+  if(loser){state.teamStage[loser]=stage==='sf'?'final':'out';}
+  if(stage==='final'){state.teamStage[winner]='winner';}
+  if(!nextStage){save();return;}
   const n=koSlotCount(stage);
   let widx=-1;
-  for(let i=0;i<n;i++){if(getKoSlot(stage+'_'+i)===t1||getKoSlot(stage+'_'+i)===t2){if(widx<0)widx=i;}}
   for(let i=0;i<n;i++){
     const v=getKoSlot(stage+'_'+i);
     if(v===t1||v===t2){widx=i;break;}
@@ -440,19 +444,14 @@ function applyKoWinner(stage,t1,t2,winner){
   if(widx<0){
     for(let i=0;i<n;i++){const v=getKoSlot(stage+'_'+i);if(v===winner){widx=i;break;}}
   }
-  if(widx<0)return;
+  if(widx<0){save();return;}
   const matchSlot=Math.floor(widx/2);
-  const ns=koSlotCount(nextStage);
   const na=matchSlot*2,nb=matchSlot*2+1;
   const ea=getKoSlot(nextStage+'_'+na),eb=getKoSlot(nextStage+'_'+nb);
   if(!ea||ea===winner){setKoSlot(nextStage+'_'+na,winner);}
   else if(!eb||eb===winner){setKoSlot(nextStage+'_'+nb,winner);}
   else{setKoSlot(nextStage+'_'+na,winner);}
   if(nextStage==='champion'){setKoSlot('champion_0',winner);}
-  state.teamStage[winner]=stage;
-  const loser=winner===t1?t2:t1;
-  if(loser){state.teamStage[loser]=stage==='sf'?'final':'out';}
-  if(stage==='final'){state.teamStage[winner]='winner';}
   save();
 }
 function koSlotCount(stage){
@@ -467,9 +466,21 @@ function recomputeKo(){
     applyKoWinner(r.stage,r.t1,r.t2,r.winner);
   });
 }
-function populateR32FromGroups(){
-  const existing=Object.keys(state.koSlots).some(k=>k.startsWith('r32_'));
-  if(existing)return;
+function populateR32FromResults(){
+  // Assign r32 slots from finished r32 koResults (pairs not yet in any slot)
+  const r32Results=state.koResults.filter(r=>r.stage==='r32');
+  for(const r of r32Results){
+    const t1In=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===r.t1);
+    const t2In=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===r.t2);
+    if(t1In||t2In)continue;
+    for(let i=0;i<32;i+=2){
+      if(!state.koSlots['r32_'+i]&&!state.koSlots['r32_'+(i+1)]){
+        state.koSlots['r32_'+i]=r.t1;
+        state.koSlots['r32_'+(i+1)]=r.t2;
+        break;
+      }
+    }
+  }
 }
 
 /* ── LEADERBOARD ── */
@@ -912,7 +923,32 @@ async function syncFromAPI(){
         nk++;
       }
     }
-    if(nk>0)recomputeKo();
+    // Fetch all WC matches to populate R32 bracket slots (includes SCHEDULED matches)
+    try{
+      const allData=await apiGet('/competitions/WC/matches?limit=500');
+      const r32Matches=(allData.matches||[]).filter(m=>{
+        const s=m.stage||'';return s==='ROUND_OF_32'||s==='LAST_32';
+      });
+      r32Matches.sort((a,b)=>(a.utcDate||'')>(b.utcDate||'')?1:-1);
+      for(const m of r32Matches){
+        const home=mapName(m.homeTeam?.name||'');
+        const away=mapName(m.awayTeam?.name||'');
+        if(!home||!away)continue;
+        const homeIn=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===home);
+        const awayIn=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===away);
+        if(homeIn||awayIn)continue;
+        for(let i=0;i<32;i+=2){
+          if(!state.koSlots['r32_'+i]&&!state.koSlots['r32_'+(i+1)]){
+            state.koSlots['r32_'+i]=home;
+            state.koSlots['r32_'+(i+1)]=away;
+            break;
+          }
+        }
+      }
+    }catch(e){console.warn('KO bracket fetch failed:',e);}
+    // Fallback: populate any still-missing r32 slots from finished koResults
+    populateR32FromResults();
+    recomputeKo();
     save();renderAll();
     state.lastSync=new Date().toISOString();save();
     const msg=`✓ Done: +${ng} group, +${nk} knockout${sk?' ('+sk+' already up to date)':''}.`;
