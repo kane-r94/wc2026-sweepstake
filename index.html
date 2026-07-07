@@ -946,7 +946,8 @@ async function syncFromAPI(){
         nk++;
       }
     }
-    // Pass 2: populate R32 bracket slots from all R32 matches (including scheduled)
+    // Pass 2: rebuild R32 bracket slots fresh from API data (wipe old localStorage slots first)
+    state.koSlots={};
     const r32Matches=matches.filter(m=>{const s=m.stage||'';return s==='ROUND_OF_32'||s==='LAST_32';});
     r32Matches.sort((a,b)=>(a.utcDate||'')>(b.utcDate||'')?1:-1);
     for(const m of r32Matches){
