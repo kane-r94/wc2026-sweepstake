@@ -1017,12 +1017,24 @@ async function renderMatches(){
       todayMatches=matchCache.todayMatches;
       scheduledMatches=matchCache.scheduledMatches;
     } else {
-      const [todayData, scheduledData] = await Promise.all([
-        apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
-        apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
-      ]);
-      todayMatches=todayData.matches||[];
-      scheduledMatches=scheduledData.matches||[];
+      // Try local data file first (updated every 10 min by GitHub Actions)
+      let allMatchData=null;
+      try{
+        const localRes=await fetch('/wc2026-sweepstake/data/matches.json?_cb='+Date.now(),{cache:'no-store'});
+        if(localRes.ok){const d=await localRes.json();if(d.matches?.length)allMatchData=d;}
+      }catch(_){}
+      if(allMatchData){
+        const all=allMatchData.matches||[];
+        todayMatches=all.filter(m=>m.utcDate&&m.utcDate.slice(0,10)===todayStr);
+        scheduledMatches=all.filter(m=>m.status==='SCHEDULED'||m.status==='TIMED');
+      } else {
+        const [todayData, scheduledData] = await Promise.all([
+          apiGet('/competitions/WC/matches?dateFrom='+todayStr+'&dateTo='+todayStr),
+          apiGet('/competitions/WC/matches?status=SCHEDULED,TIMED')
+        ]);
+        todayMatches=todayData.matches||[];
+        scheduledMatches=scheduledData.matches||[];
+      }
       matchCache={todayMatches,scheduledMatches,fetchedAt:Date.now()};
     }
     liveMatches=todayMatches;
@@ -1138,7 +1150,12 @@ async function renderAllMatches(){
   if(!cacheValid){
     body.innerHTML='<div class="empty">Fetching all fixtures…</div>';
     try{
-      const data=await apiGet('/competitions/WC/matches?limit=500');
+      let data=null;
+      try{
+        const localRes=await fetch('/wc2026-sweepstake/data/matches.json?_cb='+Date.now(),{cache:'no-store'});
+        if(localRes.ok){const d=await localRes.json();if(d.matches?.length)data=d;}
+      }catch(_){}
+      if(!data) data=await apiGet('/competitions/WC/matches?limit=500');
       allMatchCache={matches:data.matches||[],fetchedAt:Date.now()};
     }catch(err){
       body.innerHTML='<div class="empty">Could not load: '+err.message+'</div>';return;
