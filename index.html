@@ -285,7 +285,7 @@ table.st tr.el td{color:#bbb}
 <!-- ══ BRACKET ══════════════════════════════════════════════════════════════ -->
 <div class="panel" id="panel-ko">
   <div class="bracket-note">
-    <strong>How the bracket works:</strong> Groups finish 27 Jun. The 32 qualifiers (top 2 from each group + 8 best 3rd-place) populate the R32 automatically once you mark them via the Groups tab qualifier buttons. Then enter knockout results in Enter Results. Click any team slot in the bracket to quickly advance them.
+    <strong>How the bracket works:</strong> The 32 qualifiers (top 2 from each group + 8 best 3rd-place) and knockout results are loaded automatically when the page syncs with the API. Click any team slot in the bracket to manually advance them if needed.
   </div>
   <div class="bracket-wrap">
     <canvas id="bcanvas"></canvas>
@@ -873,6 +873,20 @@ async function apiGet(path){
       const j=await res.json();
       if(j.contents){const d=JSON.parse(j.contents);if(!d.errorCode)return d;}
     }
+  }catch(_){}
+
+  // Proxy 4: corsproxy.org (different service to corsproxy.io)
+  try{
+    const res=await fetch('https://corsproxy.org/?url='+encodeURIComponent(API_BASE+path)+'&_cb='+cb,
+      {headers:{'X-Auth-Token':API_TOKEN},cache:'no-store'});
+    if(res.ok)return res.json();
+  }catch(_){}
+
+  // Proxy 5: thingproxy — token as URL param
+  try{
+    const res=await fetch('https://thingproxy.freeboard.io/fetch/'+encodeURIComponent(apiUrlWithToken)+'?_cb='+cb,
+      {cache:'no-store'});
+    if(res.ok){const d=await res.json();if(!d.errorCode)return d;}
   }catch(_){}
 
   throw new Error('All proxies failed — if you have an ad blocker or privacy extension, try disabling it for this page, or open in a private window.');
