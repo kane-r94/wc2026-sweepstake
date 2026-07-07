@@ -895,9 +895,16 @@ async function apiGet(path){
 async function syncFromAPI(){
   setSyncStatus('Syncing results...','#7a8c8b');
   try{
-    const data=await apiGet('/competitions/WC/matches?status=FINISHED&limit=500');
-    const matches=data.matches||[];
-    if(!matches.length){return;}
+    // Try local data file first (updated every 10 min by GitHub Actions — no CORS issues)
+    let allData=null;
+    try{
+      const localRes=await fetch('/wc2026-sweepstake/data/matches.json?_cb='+Date.now(),{cache:'no-store'});
+      if(localRes.ok){const d=await localRes.json();if(d.matches?.length)allData=d;}
+    }catch(_){}
+    // Fall back to live API via CORS proxy
+    if(!allData) allData=await apiGet('/competitions/WC/matches?limit=500');
+    const matches=allData.matches||[];
+    if(!matches.length){setSyncStatus('No match data available yet.','#7a8c8b');return;}
     let ng=0,nk=0,sk=0;
     const KO_MAP={
       'ROUND_OF_32':'r32','LAST_32':'r32',
@@ -905,17 +912,19 @@ async function syncFromAPI(){
       'QUARTER_FINALS':'qf','SEMI_FINALS':'sf',
       'FINAL':'final'
     };
+    // Pass 1: store finished results
     for(const m of matches){
       const home=mapName(m.homeTeam?.name||'');
       const away=mapName(m.awayTeam?.name||'');
-      const rawS1=m.score?.fullTime?.home;
-      const rawS2=m.score?.fullTime?.away;
-      if(rawS1===null||rawS1===undefined||rawS2===null||rawS2===undefined)continue;
-      const s1=rawS1, s2=rawS2;
       const stage=m.stage||'';
       const dt=m.utcDate||new Date().toISOString();
       if(!home||!away)continue;
-      const id_g='api_g_'+m.id, id_k='api_k_'+m.id;
+      if(m.status!=='FINISHED')continue;
+      const rawS1=m.score?.fullTime?.home;
+      const rawS2=m.score?.fullTime?.away;
+      if(rawS1===null||rawS1===undefined||rawS2===null||rawS2===undefined)continue;
+      const s1=rawS1,s2=rawS2;
+      const id_g='api_g_'+m.id,id_k='api_k_'+m.id;
       if(stage==='GROUP_STAGE'){
         const grp=TEAM_GROUP[home]||TEAM_GROUP[away]||'?';
         state.groupResults=state.groupResults.filter(r=>r.id!==id_g);
@@ -937,30 +946,24 @@ async function syncFromAPI(){
         nk++;
       }
     }
-    // Fetch all WC matches to populate R32 bracket slots (includes SCHEDULED matches)
-    try{
-      const allData=await apiGet('/competitions/WC/matches?limit=500');
-      const r32Matches=(allData.matches||[]).filter(m=>{
-        const s=m.stage||'';return s==='ROUND_OF_32'||s==='LAST_32';
-      });
-      r32Matches.sort((a,b)=>(a.utcDate||'')>(b.utcDate||'')?1:-1);
-      for(const m of r32Matches){
-        const home=mapName(m.homeTeam?.name||'');
-        const away=mapName(m.awayTeam?.name||'');
-        if(!home||!away)continue;
-        const homeIn=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===home);
-        const awayIn=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===away);
-        if(homeIn||awayIn)continue;
-        for(let i=0;i<32;i+=2){
-          if(!state.koSlots['r32_'+i]&&!state.koSlots['r32_'+(i+1)]){
-            state.koSlots['r32_'+i]=home;
-            state.koSlots['r32_'+(i+1)]=away;
-            break;
-          }
+    // Pass 2: populate R32 bracket slots from all R32 matches (including scheduled)
+    const r32Matches=matches.filter(m=>{const s=m.stage||'';return s==='ROUND_OF_32'||s==='LAST_32';});
+    r32Matches.sort((a,b)=>(a.utcDate||'')>(b.utcDate||'')?1:-1);
+    for(const m of r32Matches){
+      const home=mapName(m.homeTeam?.name||'');
+      const away=mapName(m.awayTeam?.name||'');
+      if(!home||!away)continue;
+      const homeIn=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===home);
+      const awayIn=Object.entries(state.koSlots).some(([k,v])=>k.startsWith('r32_')&&v===away);
+      if(homeIn||awayIn)continue;
+      for(let i=0;i<32;i+=2){
+        if(!state.koSlots['r32_'+i]&&!state.koSlots['r32_'+(i+1)]){
+          state.koSlots['r32_'+i]=home;
+          state.koSlots['r32_'+(i+1)]=away;
+          break;
         }
       }
-    }catch(e){console.warn('KO bracket fetch failed:',e);}
-    // Fallback: populate any still-missing r32 slots from finished koResults
+    }
     populateR32FromResults();
     recomputeKo();
     save();renderAll();
@@ -972,7 +975,7 @@ async function syncFromAPI(){
     console.error(err);
     const msg=err.message||'';
     if(msg.includes('403')||msg.includes('permission')||msg.includes('plan')){
-      setSyncStatus('⚠️ World Cup 2026 data may require a paid tier on football-data.org. Enter results manually until the tournament is live on the free tier.','#c0392b');
+      setSyncStatus('⚠️ World Cup 2026 data may require a paid tier on football-data.org.','#c0392b');
     } else {
       setSyncStatus('Error: '+msg,'#c0392b');
     }
